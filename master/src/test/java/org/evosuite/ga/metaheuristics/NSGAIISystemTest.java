@@ -315,9 +315,7 @@ public class NSGAIISystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         Assert.assertNotNull(result);
 
-        @SuppressWarnings("unchecked")
-        GeneticAlgorithm<TestSuiteChromosome> ga =
-                (GeneticAlgorithm<TestSuiteChromosome>) getGAFromResult(result);
+        GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
 
         final FitnessFunction<TestSuiteChromosome> rho = ga.getFitnessFunctions().get(0);
         final FitnessFunction<TestSuiteChromosome> ag = ga.getFitnessFunctions().get(1);

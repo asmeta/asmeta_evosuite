@@ -75,7 +75,7 @@ public class SPEA2SystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         Assert.assertNotNull(result);
 
-        GeneticAlgorithm<TestSuiteChromosome> ga = (GeneticAlgorithm<TestSuiteChromosome>) getGAFromResult(result);
+        GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
 
         final FitnessFunction<TestSuiteChromosome> branch = ga.getFitnessFunctions().get(0);
         final FitnessFunction<TestSuiteChromosome> rho = ga.getFitnessFunctions().get(1);
