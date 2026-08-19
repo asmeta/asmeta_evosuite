@@ -46,6 +46,7 @@ import java.util.*;
 public class TestUsageChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
+    private static final String ASMETA_RESERVED_METHOD_PREFIX = "__asmeta";
 
     public static boolean canUse(Constructor<?> c) {
 
@@ -297,6 +298,13 @@ public class TestUsageChecker {
     }
 
     public static boolean canUse(Method m, Class<?> ownerClass) {
+
+        if (Properties.ASMETA_CHOICE_TRACE_FILE != null
+                && !Properties.ASMETA_CHOICE_TRACE_FILE.trim().isEmpty()
+                && m.getName().startsWith(ASMETA_RESERVED_METHOD_PREFIX)) {
+            logger.debug("Excluding reserved ASMETA recorder method " + m.getName());
+            return false;
+        }
 
         final MethodNameMatcher matcher = new MethodNameMatcher();
         String methodSignature = m.getName() + Type.getMethodDescriptor(m);
