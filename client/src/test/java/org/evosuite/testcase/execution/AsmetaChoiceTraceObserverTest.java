@@ -55,11 +55,11 @@ public class AsmetaChoiceTraceObserverTest {
     public static class RecorderTarget {
         private static boolean recording;
 
-        public static void __asmetaStartChoiceRecording() {
+        private static void __asmetaStartChoiceRecording() {
             recording = true;
         }
 
-        public static String[][] __asmetaStopChoiceRecording() {
+        private static String[][] __asmetaStopChoiceRecording() {
             if (!recording) {
                 throw new IllegalStateException("recording was not started");
             }
