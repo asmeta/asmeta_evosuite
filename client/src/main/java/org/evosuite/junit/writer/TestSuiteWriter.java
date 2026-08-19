@@ -36,6 +36,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.AsmetaChoiceTraceEntry;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -50,6 +51,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -205,9 +208,11 @@ public class TestSuiteWriter implements Opcodes {
         LoopCounter.getInstance().setActive(true); //be sure it is active here, as JUnit checks might have left it to false
 
         List<ExecutionResult> results = new ArrayList<>();
+        boolean canonicalResultsRequired = isAsmetaChoiceTracingEnabled()
+                || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.COMPILE_ONLY;
         for (TestCase test : testCases) {
             boolean added = false;
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            if (canonicalResultsRequired || !TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.info("Using cached result");
                 for (ExecutionResult result : cachedResults) {
                     if (result != null && result.test == test) {
@@ -217,9 +222,20 @@ public class TestSuiteWriter implements Opcodes {
                     }
                 }
             }
+            if (!added && canonicalResultsRequired) {
+                throw new IllegalStateException("No canonical ExecutionResult is available for an emitted test");
+            }
             if (!added) {
                 ExecutionResult result = runTest(test);
                 results.add(result);
+            }
+        }
+
+        if (isAsmetaChoiceTracingEnabled()) {
+            for (ExecutionResult result : results) {
+                if (result.getAsmetaChoiceTrace() == null) {
+                    throw new IllegalStateException("Canonical ExecutionResult has no ASMETA choose rules trace");
+                }
             }
         }
 
@@ -268,6 +284,7 @@ public class TestSuiteWriter implements Opcodes {
         }
 
         writeCoveredGoalsFile();
+        writeAsmetaChoiceTrace(dir, results);
 
         TestGenerationResultBuilder.getInstance().setTestSuiteCode(content);
         return generated;
@@ -612,6 +629,63 @@ public class TestSuiteWriter implements Opcodes {
         return "}" + NEWLINE;
     }
 
+    private static boolean isAsmetaChoiceTracingEnabled() {
+        return Properties.ASMETA_CHOICE_TRACE_FILE != null
+                && !Properties.ASMETA_CHOICE_TRACE_FILE.trim().isEmpty();
+    }
+
+    private void writeAsmetaChoiceTrace(String outputDirectory, List<ExecutionResult> results) {
+        if (!isAsmetaChoiceTracingEnabled()) {
+            return;
+        }
+
+        File traceFile = new File(Properties.ASMETA_CHOICE_TRACE_FILE);
+        try {
+            File output = new File(outputDirectory).getCanonicalFile();
+            File parent = traceFile.getCanonicalFile().getParentFile();
+            if (parent == null || !parent.equals(output)) {
+                // JUnitAnalyzer also invokes this writer in temporary directories.
+                return;
+            }
+
+            java.util.Properties traceProperties = new java.util.Properties();
+            traceProperties.setProperty("format.version", "1");
+            traceProperties.setProperty("test.count", Integer.toString(testCases.size()));
+            for (int testIndex = 0; testIndex < testCases.size(); testIndex++) {
+                String testPrefix = "test." + testIndex;
+                traceProperties.setProperty(testPrefix + ".name", getTestMethodName(testIndex, testIndex));
+
+                List<AsmetaChoiceTraceEntry> choices = results.get(testIndex).getAsmetaChoiceTrace();
+                if (choices == null) {
+                    throw new IllegalStateException("Canonical ExecutionResult has no ASMeta choice trace");
+                }
+                traceProperties.setProperty(testPrefix + ".choice.count", Integer.toString(choices.size()));
+                for (int choiceIndex = 0; choiceIndex < choices.size(); choiceIndex++) {
+                    AsmetaChoiceTraceEntry choice = choices.get(choiceIndex);
+                    String choicePrefix = testPrefix + ".choice." + choiceIndex;
+                    traceProperties.setProperty(choicePrefix + ".step", Integer.toString(choice.getStep()));
+                    traceProperties.setProperty(choicePrefix + ".rule", choice.getRule());
+                    traceProperties.setProperty(choicePrefix + ".occurrence", Integer.toString(choice.getOccurrence()));
+                    traceProperties.setProperty(choicePrefix + ".variable", choice.getVariable());
+                    traceProperties.setProperty(choicePrefix + ".domain", choice.getDomain());
+                    traceProperties.setProperty(choicePrefix + ".rndm", Integer.toString(choice.getRandomIndex()));
+                    traceProperties.setProperty(choicePrefix + ".value", choice.getValue());
+                }
+            }
+
+            try (FileOutputStream outputStream = new FileOutputStream(traceFile)) {
+                traceProperties.store(outputStream, "ASMeta choose trace generated by EvoSuite");
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot write ASMeta choice trace to " + traceFile, e);
+        }
+    }
+
+    private String getTestMethodName(int number, int id) {
+        String methodName = nameGenerator.getName(testCases.get(id));
+        return methodName == null ? TestSuiteWriterUtils.getNameOfTest(testCases, number) : methodName;
+    }
+
 
     /**
      * Convert one test case to a Java method
@@ -636,11 +710,7 @@ public class TestSuiteWriter implements Opcodes {
         }
 
         // Get the test method name generated in TestNameGenerator
-        String methodName = nameGenerator.getName(testCases.get(id));
-        if (methodName == null) {
-            // if TestNameGenerator did not generate a name, fall back to original naming
-            methodName = TestSuiteWriterUtils.getNameOfTest(testCases, number);
-        }
+        String methodName = getTestMethodName(number, id);
         builder.append(adapter.getMethodDefinition(methodName));
 
         /*

@@ -89,6 +89,9 @@ public class ExecutionResult implements Cloneable {
 
     private List<FeatureVector> featureVectors = new ArrayList<>(1);
 
+    /** Choices recorded by an ASMETA ATG target during this exact execution. */
+    private List<AsmetaChoiceTraceEntry> asmetaChoiceTrace;
+
     /**
      * @return the executedStatements
      */
@@ -423,6 +426,7 @@ public class ExecutionResult implements Cloneable {
         }
         copy.wasAnyPropertyWritten = wasAnyPropertyWritten;
         copy.featureVectors = new ArrayList<>(this.featureVectors);
+        copy.asmetaChoiceTrace = asmetaChoiceTrace == null ? null : new ArrayList<>(asmetaChoiceTrace);
 
         return copy;
     }
@@ -487,5 +491,19 @@ public class ExecutionResult implements Cloneable {
      */
     public List<FeatureVector> getFeatureVectors() {
         return Collections.unmodifiableList(this.featureVectors);
+    }
+
+    public void setAsmetaChoiceTrace(List<AsmetaChoiceTraceEntry> trace) {
+        if (trace == null) {
+            throw new IllegalArgumentException("ASMETA choose rules trace cannot be null");
+        }
+        asmetaChoiceTrace = new ArrayList<>(trace);
+    }
+
+    /**
+     * @return the trace, or {@code null} when this execution did not record ASMeta choices
+     */
+    public List<AsmetaChoiceTraceEntry> getAsmetaChoiceTrace() {
+        return asmetaChoiceTrace == null ? null : Collections.unmodifiableList(asmetaChoiceTrace);
     }
 }

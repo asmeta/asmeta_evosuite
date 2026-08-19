@@ -998,7 +998,7 @@ public class Properties {
     public static boolean JUNIT_TESTS = true;
 
     public enum JUnitCheckValues {
-        TRUE, OPTIONAL, FALSE
+        TRUE, OPTIONAL, FALSE, COMPILE_ONLY
     }
 
     @Parameter(key = "junit_check", group = "Output", description = "Compile and run resulting JUnit test suite (if any was created)")
@@ -1145,6 +1145,9 @@ public class Properties {
 
     @Parameter(key = "filter_assertions", group = "Output", description = "Filter flaky assertions")
     public static boolean FILTER_ASSERTIONS = false;
+
+    @Parameter(key = "asmeta_choice_trace_file", group = "Output", description = "Write the ASMETA choose rules trace captured while generating final assertions")
+    public static String ASMETA_CHOICE_TRACE_FILE = "";
 
     @Parameter(key = "max_mutants_per_test", group = "Output", description = "How many mutants to use when trying to find assertions for a test")
     public static int MAX_MUTANTS_PER_TEST = 100;

@@ -20,8 +20,14 @@
 
 package org.evosuite.assertion;
 
+import org.evosuite.Properties;
+import org.evosuite.TimeController;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.execution.AsmetaChoiceTraceObserver;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testsuite.TestSuiteChromosome;
 
 /**
  * <p>
@@ -45,11 +51,44 @@ public class CompleteAssertionGenerator extends AssertionGenerator {
      */
     @Override
     public void addAssertions(TestCase test) {
+        addAssertionsAndReturnResult(test);
+    }
+
+    private ExecutionResult addAssertionsAndReturnResult(TestCase test) {
         ExecutionResult result = runTest(test);
         for (OutputTrace<?> trace : result.getTraces()) {
             trace.getAllAssertions(test);
             trace.clear();
         }
         logger.debug("Test after adding assertions: " + test.toCode());
+        return result;
+    }
+
+    @Override
+    public void addAssertions(TestSuiteChromosome suite) {
+        if (Properties.ASMETA_CHOICE_TRACE_FILE == null
+                || Properties.ASMETA_CHOICE_TRACE_FILE.trim().isEmpty()) {
+            super.addAssertions(suite);
+            return;
+        }
+
+        setupClassLoader(suite);
+        for (TestChromosome test : suite.getTestChromosomes()) {
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                throw new IllegalStateException("Not enough time to capture the canonical ASMETA choose rules trace");
+            }
+
+            AsmetaChoiceTraceObserver observer = new AsmetaChoiceTraceObserver();
+            observer.prepare();
+            TestCaseExecutor.getInstance().addObserver(observer);
+            try {
+                ExecutionResult result = addAssertionsAndReturnResult(test.getTestCase());
+                observer.assertSuccessful();
+                test.setLastExecutionResult(result);
+                test.setChanged(false);
+            } finally {
+                TestCaseExecutor.getInstance().removeObserver(observer);
+            }
+        }
     }
 }

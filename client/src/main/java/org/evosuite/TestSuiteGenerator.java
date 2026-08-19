@@ -349,6 +349,8 @@ public class TestSuiteGenerator {
      */
     protected void postProcessTests(TestSuiteChromosome testSuite) {
 
+        validateAsmetaChoiceTracingConfiguration();
+
         // If overall time is short, the search might not have had enough time
         // to come up with a suite without timeouts. However, they will slow
         // down
@@ -505,17 +507,43 @@ public class TestSuiteGenerator {
             // testsuitechromosomes?
         }
 
-        if (Properties.NO_RUNTIME_DEPENDENCY) {
+        if (Properties.NO_RUNTIME_DEPENDENCY
+                && Properties.JUNIT_CHECK != Properties.JUnitCheckValues.COMPILE_ONLY) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
         } else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE ||
-                Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
-            if (ClassPathHacker.isJunitCheckAvailable())
+                Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL ||
+                Properties.JUNIT_CHECK == Properties.JUnitCheckValues.COMPILE_ONLY)) {
+            if (ClassPathHacker.isJunitCheckAvailable()) {
                 compileAndCheckTests(testSuite);
-            else
+            } else if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.COMPILE_ONLY) {
+                throw new IllegalStateException("JUnit compilation is unavailable: "
+                        + ClassPathHacker.getCause());
+            } else {
                 logger.warn("Cannot run Junit test. Cause {}", ClassPathHacker.getCause());
+            }
+        }
+    }
+
+    private static void validateAsmetaChoiceTracingConfiguration() {
+        if (Properties.ASMETA_CHOICE_TRACE_FILE == null
+                || Properties.ASMETA_CHOICE_TRACE_FILE.trim().isEmpty()) {
+            return;
+        }
+        if (!Properties.JUNIT_TESTS || !Properties.ASSERTIONS) {
+            throw new IllegalArgumentException("ASMETA choose rules tracing requires JUnit output and assertions");
+        }
+        if (Properties.ASSERTION_STRATEGY != AssertionStrategy.ALL) {
+            throw new IllegalArgumentException("ASMETA choose rules tracing requires assertion_strategy=all");
+        }
+        if (Properties.FILTER_ASSERTIONS) {
+            throw new IllegalArgumentException("ASMETA choose rules tracing requires filter_assertions=false");
+        }
+        if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
+                || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL) {
+            throw new IllegalArgumentException("ASMETA choose rules tracing requires junit_check=compile_only or false");
         }
     }
 
@@ -547,13 +575,33 @@ public class TestSuiteGenerator {
         int numUnstable = 0;
 
         // note: compiling and running JUnit tests can be very time consuming
-        if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+        if (Properties.JUNIT_CHECK != Properties.JUnitCheckValues.COMPILE_ONLY
+                && !TimeController.getInstance().isThereStillTimeInThisPhase()) {
             Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
             return;
         }
 
         List<TestCase> testCases = chromosome.getTests(); // make copy of
         // current tests
+
+        if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.COMPILE_ONLY) {
+            List<TestChromosome> originalTests = new ArrayList<>(chromosome.getTestChromosomes());
+            JUnitAnalyzer.removeTestsThatDoNotCompile(testCases, chromosome.getLastExecutionResults());
+
+            Set<TestCase> compilableTests = Collections.newSetFromMap(new IdentityHashMap<TestCase, Boolean>());
+            compilableTests.addAll(testCases);
+            List<TestChromosome> compiledChromosomes = new ArrayList<>();
+            for (TestChromosome test : originalTests) {
+                if (compilableTests.contains(test.getTestCase())) {
+                    compiledChromosomes.add(test);
+                }
+            }
+            chromosome.replaceTests(compiledChromosomes);
+            ClientServices.track(RuntimeVariable.HadUnstableTests, false);
+            ClientServices.track(RuntimeVariable.NumUnstableTests, 0);
+            Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
+            return;
+        }
 
         // first, let's just get rid of all the tests that do not compile
         JUnitAnalyzer.removeTestsThatDoNotCompile(testCases);

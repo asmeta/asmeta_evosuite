@@ -32,6 +32,7 @@ import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutionResult;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.*;
@@ -85,6 +86,21 @@ public abstract class JUnitAnalyzer {
      * @param tests
      */
     public static void removeTestsThatDoNotCompile(List<TestCase> tests) {
+        removeTestsThatDoNotCompile(tests, Collections.<ExecutionResult>emptyList(), true);
+    }
+
+    /**
+     * Compile tests using results from their canonical executions. No generated
+     * JUnit is executed and the compilation is not skipped because of the phase timer.
+     */
+    public static void removeTestsThatDoNotCompile(List<TestCase> tests,
+                                                   List<ExecutionResult> cachedResults) {
+        removeTestsThatDoNotCompile(tests, cachedResults, false);
+    }
+
+    private static void removeTestsThatDoNotCompile(List<TestCase> tests,
+                                                    List<ExecutionResult> cachedResults,
+                                                    boolean respectTimeBudget) {
 
         logger.info("Going to execute: removeTestsThatDoNotCompile");
 
@@ -95,7 +111,7 @@ public abstract class JUnitAnalyzer {
         Iterator<TestCase> iter = tests.iterator();
 
         while (iter.hasNext()) {
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            if (respectTimeBudget && !TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 break;
             }
 
@@ -111,7 +127,7 @@ public abstract class JUnitAnalyzer {
             try {
                 List<TestCase> singleList = new ArrayList<>();
                 singleList.add(test);
-                List<File> generated = compileTests(singleList, dir);
+                List<File> generated = compileTests(singleList, dir, cachedResults);
                 if (generated == null) {
                     iter.remove();
                     String code = test.toCode();
@@ -306,6 +322,11 @@ public abstract class JUnitAnalyzer {
     private static int NUM = 0;
 
     private static List<File> compileTests(List<TestCase> tests, File dir) {
+        return compileTests(tests, dir, Collections.<ExecutionResult>emptyList());
+    }
+
+    private static List<File> compileTests(List<TestCase> tests, File dir,
+                                           List<ExecutionResult> cachedResults) {
 
         TestSuiteWriter suite = new TestSuiteWriter();
         suite.insertAllTests(tests);
@@ -317,7 +338,7 @@ public abstract class JUnitAnalyzer {
 
         try {
             //now generate the JUnit test case
-            List<File> generated = suite.writeTestSuite(name, dir.getAbsolutePath(), Collections.EMPTY_LIST);
+            List<File> generated = suite.writeTestSuite(name, dir.getAbsolutePath(), cachedResults);
             for (File file : generated) {
                 if (!file.exists()) {
                     logger.error("Supposed to generate " + file
