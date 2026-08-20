@@ -30,6 +30,7 @@ import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.instrumentation.AnnotatedMethodNode;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.utils.AsmetaRecorderUtils;
 import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.MethodNode;
@@ -123,6 +124,10 @@ public class CFGMethodAdapter extends MethodVisitor {
             methods.put(classLoader, new HashMap<>());
     }
 
+    static boolean isAsmetaRecorderMethod(String name) {
+        return AsmetaRecorderUtils.isRecorderMethod(name);
+    }
+
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodVisitor#visitLineNumber(int, org.objectweb.asm.Label)
      */
@@ -147,7 +152,8 @@ public class CFGMethodAdapter extends MethodVisitor {
     @Override
     public void visitEnd() {
         logger.debug("Creating CFG of " + className + "." + methodName);
-        boolean isExcludedMethod = excludeMethod || EXCLUDE.contains(methodName);
+        boolean isExcludedMethod = excludeMethod || EXCLUDE.contains(methodName)
+                || isAsmetaRecorderMethod(plain_name);
         boolean isMainMethod = plain_name.equals("main") && Modifier.isStatic(access);
 
         List<MethodInstrumentation> instrumentations = new ArrayList<>();

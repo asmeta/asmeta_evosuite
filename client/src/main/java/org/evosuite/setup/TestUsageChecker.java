@@ -30,6 +30,7 @@ import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.utils.Java9InvisiblePackage;
 import org.evosuite.utils.LoggingUtils;
+import org.evosuite.utils.AsmetaRecorderUtils;
 import org.junit.*;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
@@ -46,7 +47,6 @@ import java.util.*;
 public class TestUsageChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
-    private static final String ASMETA_RESERVED_METHOD_PREFIX = "__asmeta";
 
     public static boolean canUse(Constructor<?> c) {
 
@@ -299,9 +299,7 @@ public class TestUsageChecker {
 
     public static boolean canUse(Method m, Class<?> ownerClass) {
 
-        if (Properties.ASMETA_CHOICE_TRACE_FILE != null
-                && !Properties.ASMETA_CHOICE_TRACE_FILE.trim().isEmpty()
-                && m.getName().startsWith(ASMETA_RESERVED_METHOD_PREFIX)) {
+        if (AsmetaRecorderUtils.isRecorderMethod(m.getName())) {
             logger.debug("Excluding reserved ASMETA recorder method " + m.getName());
             return false;
         }

@@ -25,6 +25,7 @@ import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.utils.AsmetaRecorderUtils;
 import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -117,6 +118,9 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
             return mv;
 
         if (!DependencyAnalysis.shouldInstrument(className, name + descriptor))
+            return mv;
+
+        if (AsmetaRecorderUtils.isRecorderMethod(name))
             return mv;
 
         if (isEnum && (name.equals("valueOf") || name.equals("values"))) {
