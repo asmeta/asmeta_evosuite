@@ -172,6 +172,12 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
         testCases.put(name, test);
     }
 
+    void removeTestCaseAssertions() {
+        for (TestCase testCase : testCases.values()) {
+            testCase.removeAssertions();
+        }
+    }
+
     /**
      * Map from test method to EvoSuite test case
      */

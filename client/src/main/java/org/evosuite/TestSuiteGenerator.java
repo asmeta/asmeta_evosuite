@@ -501,7 +501,7 @@ public class TestSuiteGenerator {
             } else {
                 TestSuiteGeneratorHelper.addAssertions(testSuite);
             }
-            StatisticsSender.sendIndividualToMaster(testSuite); // FIXME: can we
+            StatisticsSender.sendIndividualToMasterWithoutAssertions(testSuite); // FIXME: can we
             // pass the list
             // of
             // testsuitechromosomes?

@@ -41,10 +41,25 @@ import org.evosuite.utils.LoggingUtils;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public class TestGenerationResultBuilder {
+
+    /**
+     * Remove generated assertions from the test-case models before sending a
+     * result to the master process. The generated source code remains unchanged.
+     * Assertion values may be instances of SUT classes which are unavailable to
+     * the master RMI class loader.
+     */
+    public static void removeTestCaseAssertionsForRemoteTransfer(List<TestGenerationResult> results) {
+        for (TestGenerationResult result : results) {
+            if (result instanceof TestGenerationResultImpl) {
+                ((TestGenerationResultImpl<?>) result).removeTestCaseAssertions();
+            }
+        }
+    }
 
     public static <T extends Chromosome<T>> TestGenerationResult<T> buildErrorResult(String errorMessage) {
         TestGenerationResultImpl<T> result = new TestGenerationResultImpl<T>();

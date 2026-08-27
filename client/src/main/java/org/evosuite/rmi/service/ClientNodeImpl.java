@@ -141,6 +141,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 // TODO: Why?
                 // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
 
+                TestGenerationResultBuilder.removeTestCaseAssertionsForRemoteTransfer(results);
                 masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, results);
             } catch (Throwable t) {
                 logger.error("Error when generating tests for: "

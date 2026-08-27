@@ -62,6 +62,33 @@ public class StatisticsSender {
         ClientServices.<T>getInstance().getClientNode().updateStatistics(individual);
     }
 
+    /**
+     * Send the final suite statistics without serializing generated assertions.
+     *
+     * Assertion values can be instances of classes from the SUT (for example an
+     * enum constant). The client can load those classes, while the master RMI
+     * endpoint might not have them on its system class path. Assertions are not
+     * used by the statistics factories, so send an assertion-free copy and keep
+     * the original suite unchanged for JUnit generation.
+     */
+    public static void sendIndividualToMasterWithoutAssertions(TestSuiteChromosome testSuite) {
+        if (testSuite == null) {
+            throw new IllegalArgumentException("No defined test suite to send");
+        }
+        if (!Properties.NEW_STATISTICS)
+            return;
+
+        sendIndividualToMaster(copyWithoutAssertionsForStatistics(testSuite));
+    }
+
+    static TestSuiteChromosome copyWithoutAssertionsForStatistics(TestSuiteChromosome testSuite) {
+        TestSuiteChromosome copy = testSuite.clone();
+        for (TestChromosome test : copy.getTestChromosomes()) {
+            test.getTestCase().removeAssertions();
+        }
+        return copy;
+    }
+
 
     /**
      * First execute (if needed) the test cases to be sure to have latest correct data,
