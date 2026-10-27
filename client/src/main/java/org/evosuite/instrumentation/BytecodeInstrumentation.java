@@ -47,6 +47,8 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
@@ -165,7 +167,20 @@ public class BytecodeInstrumentation {
          * CFGAdapter.
          */
         int asmFlags = ClassWriter.COMPUTE_FRAMES;
-        ClassWriter writer = new ComputeClassWriter(asmFlags);
+        ClassWriter writer = new ComputeClassWriter(asmFlags) {
+            @Override
+            protected ClassReader typeInfo(String type) throws IOException {
+                // The master's context loader may not contain the SUT classpath.
+                // Resolve frame types through the same resources used to load the SUT.
+                try (InputStream stream = ResourceList.getInstance(classLoader)
+                        .getClassAsStream(type.replace('/', '.'))) {
+                    if (stream != null) {
+                        return new ClassReader(stream);
+                    }
+                }
+                return super.typeInfo(type);
+            }
+        };
 
         ClassVisitor cv = writer;
         if (logger.isDebugEnabled()) {
